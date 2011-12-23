@@ -1,0 +1,75 @@
+#!/bin/sh
+#
+# Copyright (c) 2012 Stuart.Lynne@gmail.com
+#
+
+#
+# Usage: (cd inputdir; tar cfz script files... - ) | ssh user@remote uussh command args... | (cd outputdir; tar xfz - )
+#
+# 1. Files received on STDIN as a TGZ stream are unpacked in a temporary directory.
+# 2. The specified command and args are run.
+# 3. The contents of the directory are send to STDOUT as a TGZ stream.
+# 4. The temporary directory is removed.
+#
+
+RUNME=$1; shift
+ARGS=$*
+
+PATH=$PATH:/usr/local/bin
+
+STDERR() {
+        echo $* 1>&2 
+}
+onerror() {
+        STDERR onerror: $*
+        exit 
+}
+killme() {
+        STDERR -en "\n\n$*\n\n" 
+        set +x
+        kill -1 $$ 1>&2
+}
+
+trap onerror 1 2 9 15
+
+section() {
+cat 1>&2 <<-EOF
+        
+----------------------------------------------------------------
+$*
+EOF
+}
+
+WDIR=$(mktemp.exe -d)
+
+pushd ${WDIR} 1>&2
+
+section ARGS
+cat 1>&2 <<-EOF
+RUNME: $RUNME
+ARGS: $ARGS
+EOF
+
+section RECEIVING $INPUT
+
+tar xfz - 2>/dev/null
+
+section RUNNING $RUNME
+
+[ -f "${RUNME}" ] || killme "CANNOT FIND $RUNME"
+[ -x "${RUNME}" ] || killme "CANNOT EXECUTE $RUNME"
+
+${RUNME} ${ARGS} || killme ${RUNME} FAILED WITH ERROR $?
+
+section RETURNING $OUTPUT
+
+tar cfz - . 2>/dev/null
+
+section CLEANUP
+
+popd 1>&2
+
+rm -rf ${WDIR} 1>&2
+
+exit 0
+

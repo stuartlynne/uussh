@@ -1,0 +1,82 @@
+#!/bin/bash
+#
+# Copyright (c) 2012 Stuart.Lynne@gmail.com
+#
+#
+
+#
+# Usage: ruussh inputdir outputdir user@remote command arg1 arg2 .... 
+#
+# 1. Pipes the contents of the specified input directory as a TGZ stream 
+# 2. To an ssh invocation of the uussh command pass the command and args.
+# 3. Captures the returned TGZ stream and unpacks in the outputdir.
+# 
+
+PATH=$PATH:/usr/local/bin
+
+STDERR() {
+        /bin/echo $* 1>&2
+}
+onerror() {
+        STDERR onerror: $*
+        figlet ERROR 1>&2
+        exit
+}
+killme() {
+        set +x
+        STDERR -en "\n\n$*\n\n"
+        kill -1 $$ 1>&2
+}
+
+trap onerror 1 2 9 15
+
+FIGLET() {
+        figlet -w 130 $*
+}
+
+section() {
+cat 1>&2 <<-EOF
+
+----------------------------------------------------------------
+$*
+
+EOF
+}
+        
+
+[ $# -ge 4 ] || usage
+
+INPUTDIR=$1; shift
+OUTPUTDIR=$1; shift
+REMOTE=$1; shift
+COMMAND=$1; shift
+ARGS=$*
+
+STDERR
+STDERR REMOTE: $REMOTE
+STDERR INPUTDIR: ${INPUTDIR}
+STDERR OUTPUTDIR: ${OUTPUTDIR}
+STDERR COMMANDS: ${COMMAND}
+STDERR ARGS: ${ARGS}
+
+[ -d "${INPUTDIR}" ] || killme CANNOT SEE INPUTDIR $INPUTDIR
+[ -d "${OUTPUTDIR}" ] && rm -rf "${OUTPUTDIR}"
+mkdir -p ${OUTPUTDIR[@]} || killme CANNOT MKDIR ${OUTPUTDIR[@]}
+
+( 
+        cd ${INPUTDIR} 1>&2 || killme CANNOT CD INTO ${INPUTDIR}
+
+        tar cfhz - . || killme TGZ CFHZ FAILED 
+
+) | time -p ssh ${REMOTE} /usr/local/bin/uussh ${COMMAND} ${ARGS} | \
+(
+        if [ "${OUTPUTDIR}" = "-" ] ; then
+
+                cat > /dev/null
+        else
+
+                cd ${OUTPUTDIR} 1>&2 || killme CANNOT CD INTO ${OUTPUTDIR}
+                tar xfz - || killme TGZ XFZ FAILED 
+
+        fi
+)

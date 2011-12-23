@@ -7,8 +7,18 @@ The two programs:
         ruussh
         uussh
 
-are used to send a directory to another system via ssh, run a command and
+Are used to send a directory to another system via ssh, run a command and
 return the resulting files.
+
+The original use case was to allow for signing driver files. While the 
+Windows DDK tools work reasonably well in Wine under Linux, allowing 
+drivers to be easily built, getting them signed with the SignTool utility
+was problematical as there are various missing DLL's or unimplemented
+entry points.
+
+These programs allowed the driver kit to be assembled in Linux, and then
+sent to a local Windows system (with Cygwin openssh installed) where a
+short script would run SignTool. The modified files are then sent back.:x
 
 
 Usage: ruussh inputdir outputdir user@remote command arg1 arg2 .... 
